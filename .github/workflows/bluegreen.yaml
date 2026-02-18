@@ -11,7 +11,7 @@ env:
   GKE_CLUSTER: assignment-3-gke   # cluster name
   GKE_ZONE: europe-west4   # cluster zone
   IMAGE: k8s-cluster-test # image name
-  IMAGE_TAG: ${{ github.ref_name }} # image tag
+  IMAGE_TAG: ${{ github.ref_name }} # image tag.
   GAR_ZONE: europe-west4 # artifact registry zone
   GAR_REPO: bluegreen-repo # artifact registry repository
 

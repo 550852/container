@@ -56,3 +56,9 @@ jobs:
     - name: Publish
       run: |-
         docker push "$GAR_ZONE-docker.pkg.dev/$PROJECT_ID/$GAR_REPO/$IMAGE:$IMAGE_TAG"
+
+    # Update the Kubernetes deployment based on the branch
+    - name: Deploy
+      run: |
+        kubectl apply -f k8s/
+        kubectl get pods

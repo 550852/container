@@ -43,20 +43,29 @@ jobs:
         cluster_name: ${{ env.GKE_CLUSTER }}
         location: ${{ env.GKE_ZONE }}
 
-    # Build the Docker image
-    - name: Build
-      run: |-
+    # Build BOTH images
+    - name: Build BLUE image (:main)
+      run: |
         docker build \
-          --tag "$GAR_ZONE-docker.pkg.dev/$PROJECT_ID/$GAR_REPO/$IMAGE:$IMAGE_TAG" \
-          --build-arg GITHUB_SHA="$GITHUB_SHA" \
-          --build-arg GITHUB_REF="$GITHUB_REF" \
+          --tag "$GAR_ZONE-docker.pkg.dev/$PROJECT_ID/$GAR_REPO/$IMAGE:main" \
           .
-    # Push the Docker image to Google Container Registry
-    - name: Publish
-      run: |-
-        docker push "$GAR_ZONE-docker.pkg.dev/$PROJECT_ID/$GAR_REPO/$IMAGE:$IMAGE_TAG"
 
-    # Update the Kubernetes deployment based on the branch
+    - name: Build GREEN image (:test)
+      run: |
+        docker build \
+          --tag "$GAR_ZONE-docker.pkg.dev/$PROJECT_ID/$GAR_REPO/$IMAGE:test" \
+          .
+
+    # Push BOTH images
+    - name: Push BLUE image
+      run: |
+        docker push "$GAR_ZONE-docker.pkg.dev/$PROJECT_ID/$GAR_REPO/$IMAGE:main"
+
+    - name: Push GREEN image
+      run: |
+        docker push "$GAR_ZONE-docker.pkg.dev/$PROJECT_ID/$GAR_REPO/$IMAGE:test"
+
+    # Deploy BOTH environments
     - name: Deploy
       run: |
         kubectl apply -f k8s/

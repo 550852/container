@@ -1,0 +1,21 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: green
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: myapp
+      version: green
+  template:
+    metadata:
+      labels:
+        app: myapp
+        version: green
+    spec:
+      containers:
+      - name: app
+        image: europe-west4-docker.pkg.dev/public-cloud-concepts-486508/bluegreen-repo/k8s-cluster-test:test
+        ports:
+        - containerPort: 80

@@ -16,7 +16,6 @@ spec:
     spec:
       containers:
       - name: app
-        image: nginx
-        imagePullPolicy: Always
+        image: europe-west4-docker.pkg.dev/public-cloud-concepts-486508/bluegreen-repo/k8s-cluster-test:main
         ports:
         - containerPort: 80

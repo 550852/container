@@ -16,6 +16,7 @@ spec:
     spec:
       containers:
       - name: app
-        image: PLACEHOLDER
+        image: nginx
+        imagePullPolicy: Always
         ports:
         - containerPort: 80

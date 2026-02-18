@@ -7,7 +7,7 @@ on:
       - test
 
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  PROJECT_ID: ${{ secrets.GKE_PROJECT }}
   CLUSTER_NAME: ${{ secrets.GKE_CLUSTER }}
   REGION: ${{ secrets.GKE_REGION }}
   REPOSITORY: ${{ secrets.GAR_REPOSITORY }}
@@ -23,7 +23,7 @@ jobs:
     - name: Authenticate to GCP
       uses: google-github-actions/auth@v1
       with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+        credentials_json: '${{ secrets.GKE_SA_KEY }}'
 
     - name: Setup gcloud
       uses: google-github-actions/setup-gcloud@v1

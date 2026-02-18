@@ -1,4 +1,4 @@
-name: Build and Deploy Blue-Green
+name: Build and Deploy to GKE (Blue-Green)
 
 on:
   push:
@@ -8,19 +8,22 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GKE_PROJECT }}
-  CLUSTER_NAME: ${{ secrets.GKE_CLUSTER }}
-  REGION: ${{ secrets.GKE_REGION }}
-  REPOSITORY: ${{ secrets.GAR_REPOSITORY }}
+  GKE_CLUSTER: assignment-3-gke
+  GKE_ZONE: europe-west4
+  GAR_ZONE: europe-west4
+  GAR_REPO: bluegreen-repo
+  IMAGE_NAME: micro
 
 jobs:
-  build-deploy:
+  setup-build-publish-deploy:
+    name: Build, Publish, Deploy
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout
       uses: actions/checkout@v3
 
-    - name: Authenticate to GCP
+    - id: auth
       uses: google-github-actions/auth@v1
       with:
         credentials_json: '${{ secrets.GKE_SA_KEY }}'
@@ -29,26 +32,37 @@ jobs:
       uses: google-github-actions/setup-gcloud@v1
 
     - name: Configure Docker
-      run: gcloud auth configure-docker $REGION-docker.pkg.dev
+      run: |
+        gcloud auth configure-docker $GAR_ZONE-docker.pkg.dev
 
     - name: Get GKE credentials
-      run: gcloud container clusters get-credentials $CLUSTER_NAME --region $REGION
-
-    - name: Build and Push Image
       run: |
-        IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/app:${{ github.sha }}
+        gcloud container clusters get-credentials $GKE_CLUSTER --region $GKE_ZONE
+
+    - name: Build Docker image
+      run: |
+        IMAGE=$GAR_ZONE-docker.pkg.dev/$PROJECT_ID/$GAR_REPO/$IMAGE_NAME:${{ github.sha }}
         docker build -t $IMAGE .
         docker push $IMAGE
         echo "IMAGE=$IMAGE" >> $GITHUB_ENV
 
-    - name: Deploy Blue or Green
+    - name: Ensure Kubernetes resources exist
+      run: |
+        kubectl apply -f k8s/blue-deployment.yaml
+        kubectl apply -f k8s/green-deployment.yaml
+        kubectl apply -f k8s/service.yaml
+
+    - name: Update correct deployment (Blue/Green)
       run: |
         if [ "${{ github.ref_name }}" = "main" ]; then
-          kubectl set image deployment/blue app=$IMAGE --record || \
-          kubectl apply -f k8s/blue-deployment.yaml
+          kubectl set image deployment/blue app=$IMAGE
         fi
 
         if [ "${{ github.ref_name }}" = "test" ]; then
-          kubectl set image deployment/green app=$IMAGE --record || \
-          kubectl apply -f k8s/green-deployment.yaml
+          kubectl set image deployment/green app=$IMAGE
         fi
+
+    - name: Verify
+      run: |
+        kubectl get deployments
+        kubectl get pods

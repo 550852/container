@@ -1,0 +1,54 @@
+name: Build and Deploy Blue-Green
+
+on:
+  push:
+    branches:
+      - main
+      - test
+
+env:
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  CLUSTER_NAME: ${{ secrets.GKE_CLUSTER }}
+  REGION: ${{ secrets.GKE_REGION }}
+  REPOSITORY: ${{ secrets.GAR_REPOSITORY }}
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+    - name: Setup gcloud
+      uses: google-github-actions/setup-gcloud@v1
+
+    - name: Configure Docker
+      run: gcloud auth configure-docker $REGION-docker.pkg.dev
+
+    - name: Get GKE credentials
+      run: gcloud container clusters get-credentials $CLUSTER_NAME --region $REGION
+
+    - name: Build and Push Image
+      run: |
+        IMAGE=$REGION-docker.pkg.dev/$PROJECT_ID/$REPOSITORY/app:${{ github.sha }}
+        docker build -t $IMAGE .
+        docker push $IMAGE
+        echo "IMAGE=$IMAGE" >> $GITHUB_ENV
+
+    - name: Deploy Blue or Green
+      run: |
+        if [ "${{ github.ref_name }}" = "main" ]; then
+          kubectl set image deployment/blue app=$IMAGE --record || \
+          kubectl apply -f k8s/blue-deployment.yaml
+        fi
+
+        if [ "${{ github.ref_name }}" = "test" ]; then
+          kubectl set image deployment/green app=$IMAGE --record || \
+          kubectl apply -f k8s/green-deployment.yaml
+        fi

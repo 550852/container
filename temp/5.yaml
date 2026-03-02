@@ -1,0 +1,72 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: RDS export to S3 infra (REQ-07)
+
+Parameters:
+  VpcId:
+    Type: String
+  PrivateSubnet1Id:
+    Type: String
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+  AmiId:
+    Type: AWS::EC2::Image::Id
+
+Resources:
+  ExportBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "cloudshirt-orders-export-${AWS::AccountId}-${AWS::Region}"
+
+  ExportRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+  ExportInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref ExportRole
+
+  ExportInstanceSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow SQL + internet (demo)
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 1433
+          ToPort: 1433
+          CidrIp: 10.0.0.0/16
+
+  ExportInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: t3.micro
+      KeyName: !Ref KeyName
+      SubnetId: !Ref PrivateSubnet1Id
+      IamInstanceProfile: !Ref ExportInstanceProfile
+      SecurityGroupIds:
+        - !Ref ExportInstanceSG
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y awscli
+          # Hier later bcp + exportscript toevoegen
+          echo "Placeholder export instance" > /home/ec2-user/info.txt
+
+Outputs:
+  ExportBucketName:
+    Value: !Ref ExportBucket
+  ExportInstanceId:
+    Value: !Ref ExportInstance

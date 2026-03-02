@@ -1,0 +1,71 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Simple Elastic Stack node (REQ-05/06 demo)
+
+Parameters:
+  VpcId:
+    Type: String
+  PublicSubnet1Id:
+    Type: String
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+  AmiId:
+    Type: AWS::EC2::Image::Id
+  InstanceType:
+    Type: String
+    Default: t3.small
+
+Resources:
+  ElasticSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP/9200 from VPC (demo)
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5601
+          ToPort: 5601
+          CidrIp: 0.0.0.0/0   # alleen demo
+        - IpProtocol: tcp
+          FromPort: 9200
+          ToPort: 9200
+          CidrIp: 10.0.0.0/16
+
+  ElasticInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref AmiId
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SubnetId: !Ref PublicSubnet1Id
+      SecurityGroupIds:
+        - !Ref ElasticSG
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          amazon-linux-extras install docker -y
+          systemctl enable docker
+          systemctl start docker
+          docker network create elk
+          docker run -d --name elasticsearch --net elk -p 9200:9200 -e "discovery.type=single-node" docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+          docker run -d --name kibana --net elk -p 5601:5601 docker.elastic.co/kibana/kibana:8.12.0
+
+Outputs:
+  KibanaURL:
+    Value: !Sub "http://${ElasticInstance.PublicDnsName}:5601"
+    Description: Kibana URL
+
+
+
+# yum install -y filebeat
+# cat > /etc/filebeat/filebeat.yml <<EOF
+# filebeat.inputs:
+#   - type: log
+#     paths:
+#       - /var/log/httpd/access_log
+
+# output.elasticsearch:
+#   hosts: ["http://ELASTIC_IP_OF_ABOVE:9200"]
+# EOF
+# systemctl enable filebeat
+# systemctl start filebeat
